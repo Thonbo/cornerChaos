@@ -114,9 +114,28 @@ class App {
         this.boxes = [];
         this.resizeObserver = null;
         this.config = JSON.parse(JSON.stringify(config)); // Deep clone
+        this.images = [];
 
         this.buildConfigUI();
-        this.regenerate();
+        this.loadImages().then(() => {
+            this.regenerate();
+        });
+    }
+
+    async loadImages() {
+        try {
+            // Load image list from images.json
+            const response = await fetch('images.json');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.images && data.images.length > 0) {
+                    this.images = data.images;
+                    console.log(`Loaded ${this.images.length} images`);
+                }
+            }
+        } catch (error) {
+            console.log('No images found, using colors only');
+        }
     }
 
     downloadConfig() {
@@ -269,15 +288,28 @@ class App {
 
         for (let i = 0; i < 6; i++) {
             const corners = this.pickCorners();
-            
-            // Box 1 gets a generated pattern, others get random colors
+
+            // Chess pattern: 2nd and 3rd of every 4 boxes get images
+            // Pattern: color, image, image, color, color, image, image, color...
+            // Position 0: color (1st of 4)
+            // Position 1: image (2nd of 4)
+            // Position 2: image (3rd of 4)
+            // Position 3: color (4th of 4)
+            // Position 4: color (1st of 4)
+            // Position 5: image (2nd of 4)
+            const positionInGroup = i % 4;
+            const useImage = (positionInGroup === 1 || positionInGroup === 2);
+
             let content;
-            if (i === 1) {
+            if (useImage && this.images.length > 0) {
+                // Use random image from loaded images
+                const randomImage = this.images[Math.floor(Math.random() * this.images.length)];
                 content = {
-                    type: 'pattern',
-                    value: 'checkerboard'
+                    type: 'image',
+                    value: randomImage
                 };
             } else {
+                // Use random LEGO color
                 content = {
                     type: 'color',
                     value: LEGO_COLORS[Math.floor(Math.random() * LEGO_COLORS.length)]
