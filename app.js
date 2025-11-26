@@ -27,87 +27,62 @@ class Box {
         const edgeWidth = width - (CORNER_WIDTH * 2);
         const bodyHeight = height - (CORNER_HEIGHT * 2);
 
-        // For videos, use SVG pattern approach for proper masking
+        // For videos, render the same way as images but use video element in pattern
         if (content.type === 'video') {
+            // Use inline style to position video behind SVG mask
+            this.container.style.position = 'relative';
+            this.container.style.overflow = 'hidden';
+
             this.container.innerHTML = `
-                <div style="position: relative; width: ${width}px; height: ${height}px;">
-                    <video id="video${id}" autoplay loop muted playsinline
-                           style="position: absolute; width: 100%; height: 100%; object-fit: cover; opacity: 0;">
-                        <source src="${content.value}" type="video/mp4">
-                    </video>
-                    <svg width="${width}" height="${height}" style="position: absolute; top: 0; left: 0;">
-                        <defs>
-                            <mask id="boxMask${id}">
-                                <path d="${tlPath}" fill="white"/>
-                                <rect x="${CORNER_WIDTH}" y="0" width="${edgeWidth}" height="${CORNER_HEIGHT}" fill="white"/>
-                                <g transform="translate(${width - CORNER_WIDTH}, 0)">
-                                    <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
-                                        <path d="${trPath}" fill="white"/>
-                                    </g>
+                <video id="video${id}" autoplay loop muted playsinline
+                       style="position: absolute; top: 50%; left: 50%; min-width: 100%; min-height: 100%;
+                              width: auto; height: auto; transform: translate(-50%, -50%); z-index: 0;">
+                    <source src="${content.value}" type="video/mp4">
+                </video>
+                <svg width="${width}" height="${height}" style="position: relative; display: block; z-index: 1;">
+                    <defs>
+                        <mask id="boxMask${id}">
+                            <!-- Top left corner -->
+                            <path d="${tlPath}" fill="white"/>
+
+                            <!-- Top edge -->
+                            <rect x="${CORNER_WIDTH}" y="0" width="${edgeWidth}" height="${CORNER_HEIGHT}" fill="white"/>
+
+                            <!-- Top right corner (mirrored) -->
+                            <g transform="translate(${width - CORNER_WIDTH}, 0)">
+                                <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
+                                    <path d="${trPath}" fill="white"/>
                                 </g>
-                                <rect x="0" y="${CORNER_HEIGHT}" width="${width}" height="${bodyHeight}" fill="white"/>
-                                <g transform="translate(0, ${height - CORNER_HEIGHT})">
-                                    <path d="${blPath}" fill="white"/>
+                            </g>
+
+                            <!-- Body -->
+                            <rect x="0" y="${CORNER_HEIGHT}" width="${width}" height="${bodyHeight}" fill="white"/>
+
+                            <!-- Bottom left corner -->
+                            <g transform="translate(0, ${height - CORNER_HEIGHT})">
+                                <path d="${blPath}" fill="white"/>
+                            </g>
+
+                            <!-- Bottom edge -->
+                            <rect x="${CORNER_WIDTH}" y="${height - CORNER_HEIGHT}" width="${edgeWidth}" height="${CORNER_HEIGHT}" fill="white"/>
+
+                            <!-- Bottom right corner (mirrored) -->
+                            <g transform="translate(${width - CORNER_WIDTH}, ${height - CORNER_HEIGHT})">
+                                <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
+                                    <path d="${brPath}" fill="white"/>
                                 </g>
-                                <rect x="${CORNER_WIDTH}" y="${height - CORNER_HEIGHT}" width="${edgeWidth}" height="${CORNER_HEIGHT}" fill="white"/>
-                                <g transform="translate(${width - CORNER_WIDTH}, ${height - CORNER_HEIGHT})">
-                                    <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
-                                        <path d="${brPath}" fill="white"/>
-                                    </g>
-                                </g>
-                            </mask>
-                            <clipPath id="boxClip${id}">
-                                <path d="${tlPath}"/>
-                                <rect x="${CORNER_WIDTH}" y="0" width="${edgeWidth}" height="${CORNER_HEIGHT}"/>
-                                <g transform="translate(${width - CORNER_WIDTH}, 0)">
-                                    <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
-                                        <path d="${trPath}"/>
-                                    </g>
-                                </g>
-                                <rect x="0" y="${CORNER_HEIGHT}" width="${width}" height="${bodyHeight}"/>
-                                <g transform="translate(0, ${height - CORNER_HEIGHT})">
-                                    <path d="${blPath}"/>
-                                </g>
-                                <rect x="${CORNER_WIDTH}" y="${height - CORNER_HEIGHT}" width="${edgeWidth}" height="${CORNER_HEIGHT}"/>
-                                <g transform="translate(${width - CORNER_WIDTH}, ${height - CORNER_HEIGHT})">
-                                    <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
-                                        <path d="${brPath}"/>
-                                    </g>
-                                </g>
-                            </clipPath>
-                        </defs>
-                        <foreignObject x="0" y="0" width="${width}" height="${height}" clip-path="url(#boxClip${id})">
-                            <div xmlns="http://www.w3.org/1999/xhtml" style="width: 100%; height: 100%; background: black;">
-                                <canvas id="canvas${id}" width="${width}" height="${height}" style="width: 100%; height: 100%;"></canvas>
-                            </div>
-                        </foreignObject>
-                    </svg>
-                </div>
+                            </g>
+                        </mask>
+                    </defs>
+
+                    <rect x="0" y="0" width="${width}" height="${height}" fill="white" mask="url(#boxMask${id})" style="pointer-events: none;"/>
+                </svg>
             `;
 
-            // Draw video to canvas for proper masking
+            // Start video playback
             const video = this.container.querySelector(`#video${id}`);
-            const canvas = this.container.querySelector(`#canvas${id}`);
-            if (video && canvas) {
-                const ctx = canvas.getContext('2d');
-
-                const drawFrame = () => {
-                    if (video.readyState >= video.HAVE_CURRENT_DATA) {
-                        ctx.drawImage(video, 0, 0, width, height);
-                    }
-                    requestAnimationFrame(drawFrame);
-                };
-
-                video.addEventListener('loadeddata', () => {
-                    video.play().catch(e => console.log('Video autoplay prevented:', e));
-                    drawFrame();
-                });
-
-                // Start drawing if video is already loaded
-                if (video.readyState >= video.HAVE_CURRENT_DATA) {
-                    video.play().catch(e => console.log('Video autoplay prevented:', e));
-                    drawFrame();
-                }
+            if (video) {
+                video.play().catch(e => console.log('Video autoplay prevented:', e));
             }
             return;
         }
