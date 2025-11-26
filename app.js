@@ -1,0 +1,398 @@
+// Box class
+class Box {
+    constructor(container, corners, content, id) {
+        this.container = container;
+        this.corners = corners;
+        this.content = content;
+        this.id = id;
+        this.width = 0;
+        this.height = 0;
+    }
+
+    updateSize(width, height) {
+        const changed = (this.width !== width || this.height !== height);
+        this.width = width;
+        this.height = height;
+        return changed;
+    }
+
+    render() {
+        const { width, height, corners, content, id } = this;
+        
+        const tlPath = CORNER_PATHS[corners.topLeft];
+        const trPath = CORNER_PATHS[corners.topRight];
+        const blPath = BOTTOM_CORNER_PATHS[corners.bottomLeft];
+        const brPath = BOTTOM_CORNER_PATHS[corners.bottomRight];
+
+        const edgeWidth = width - (CORNER_WIDTH * 2);
+        const bodyHeight = height - (CORNER_HEIGHT * 2);
+
+        // Generate pattern/image or direct color
+        let fillDef = '';
+        let fillValue = '';
+        
+        if (content.type === 'image') {
+            fillDef = `
+                <pattern id="imgPattern${id}" patternUnits="userSpaceOnUse" width="${width}" height="${height}">
+                    <image href="${content.value}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice"/>
+                </pattern>
+            `;
+            fillValue = `url(#imgPattern${id})`;
+        } else if (content.type === 'pattern') {
+            // Generate checkerboard pattern
+            const patternSize = 40;
+            fillDef = `
+                <pattern id="pattern${id}" patternUnits="userSpaceOnUse" width="${patternSize}" height="${patternSize}">
+                    <rect x="0" y="0" width="${patternSize/2}" height="${patternSize/2}" fill="#2196F3"/>
+                    <rect x="${patternSize/2}" y="${patternSize/2}" width="${patternSize/2}" height="${patternSize/2}" fill="#2196F3"/>
+                    <rect x="${patternSize/2}" y="0" width="${patternSize/2}" height="${patternSize/2}" fill="#64B5F6"/>
+                    <rect x="0" y="${patternSize/2}" width="${patternSize/2}" height="${patternSize/2}" fill="#64B5F6"/>
+                </pattern>
+            `;
+            fillValue = `url(#pattern${id})`;
+        } else {
+            fillValue = content.value;
+        }
+
+        this.container.innerHTML = `
+            <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    ${fillDef}
+                    <mask id="boxMask${id}">
+                        <!-- Top left corner -->
+                        <path d="${tlPath}" fill="white"/>
+                        
+                        <!-- Top edge -->
+                        <rect x="${CORNER_WIDTH}" y="0" width="${edgeWidth}" height="${CORNER_HEIGHT}" fill="white"/>
+                        
+                        <!-- Top right corner (mirrored) -->
+                        <g transform="translate(${width - CORNER_WIDTH}, 0)">
+                            <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
+                                <path d="${trPath}" fill="white"/>
+                            </g>
+                        </g>
+                        
+                        <!-- Body -->
+                        <rect x="0" y="${CORNER_HEIGHT}" width="${width}" height="${bodyHeight}" fill="white"/>
+                        
+                        <!-- Bottom left corner -->
+                        <g transform="translate(0, ${height - CORNER_HEIGHT})">
+                            <path d="${blPath}" fill="white"/>
+                        </g>
+                        
+                        <!-- Bottom edge -->
+                        <rect x="${CORNER_WIDTH}" y="${height - CORNER_HEIGHT}" width="${edgeWidth}" height="${CORNER_HEIGHT}" fill="white"/>
+                        
+                        <!-- Bottom right corner (mirrored) -->
+                        <g transform="translate(${width - CORNER_WIDTH}, ${height - CORNER_HEIGHT})">
+                            <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
+                                <path d="${brPath}" fill="white"/>
+                            </g>
+                        </g>
+                    </mask>
+                </defs>
+                
+                <rect x="0" y="0" width="${width}" height="${height}" fill="${fillValue}" mask="url(#boxMask${id})"/>
+            </svg>
+        `;
+    }
+
+    updateAndRender() {
+        const rect = this.container.getBoundingClientRect();
+        const width = Math.floor(rect.width);
+        const height = Math.floor(rect.height);
+        
+        if (this.updateSize(width, height)) {
+            this.render();
+        }
+    }
+}
+
+// App class
+class App {
+    constructor(config) {
+        this.boxes = [];
+        this.resizeObserver = null;
+        this.config = JSON.parse(JSON.stringify(config)); // Deep clone
+
+        this.buildConfigUI();
+        this.updateConfigPreview();
+        this.regenerate();
+    }
+
+    updateConfigPreview() {
+        const preview = document.getElementById('configJson');
+        if (preview) {
+            preview.textContent = JSON.stringify(this.config, null, 4);
+        }
+    }
+
+    downloadConfig() {
+        const dataStr = JSON.stringify(this.config, null, 4);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'config.json';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    copyConfig() {
+        const dataStr = JSON.stringify(this.config, null, 4);
+        navigator.clipboard.writeText(dataStr).then(() => {
+            const btn = document.getElementById('btnCopyConfig');
+            const originalText = btn.textContent;
+            btn.textContent = '✅ Copied!';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            alert('Failed to copy to clipboard');
+        });
+    }
+
+    buildConfigUI() {
+        const topConfig = document.getElementById('topConfig');
+        const bottomConfig = document.getElementById('bottomConfig');
+
+        topConfig.innerHTML = this.config.topCorners.map((item, idx) => `
+            <div class="config-item">
+                <div class="corner-preview">
+                    <svg viewBox="0 0 73 39">
+                        <path d="${CORNER_PATHS[item.name]}" fill="black"/>
+                    </svg>
+                </div>
+                <div class="config-item-name">${item.name}</div>
+                <div class="config-item-controls">
+                    <span class="toggle-label">Unique</span>
+                    <label class="toggle">
+                        <input type="checkbox" ${item.unique ? 'checked' : ''} 
+                               data-type="top" data-index="${idx}" data-field="unique">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    
+                    <span class="weight-label">Weight %</span>
+                    <input type="number" 
+                           class="weight-input" 
+                           min="0" 
+                           max="100" 
+                           step="0.1" 
+                           value="${item.weight}"
+                           data-type="top" data-index="${idx}" data-field="weight">
+                </div>
+            </div>
+        `).join('');
+
+        bottomConfig.innerHTML = this.config.bottomCorners.map((item, idx) => `
+            <div class="config-item">
+                <div class="corner-preview">
+                    <svg viewBox="0 0 73 39">
+                        <path d="${BOTTOM_CORNER_PATHS[item.name]}" fill="black"/>
+                    </svg>
+                </div>
+                <div class="config-item-name">${item.name}</div>
+                <div class="config-item-controls">
+                    <span class="toggle-label">Unique</span>
+                    <label class="toggle">
+                        <input type="checkbox" ${item.unique ? 'checked' : ''} 
+                               data-type="bottom" data-index="${idx}" data-field="unique">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    
+                    <span class="weight-label">Weight %</span>
+                    <input type="number" 
+                           class="weight-input" 
+                           min="0" 
+                           max="100" 
+                           step="0.1" 
+                           value="${item.weight}"
+                           data-type="bottom" data-index="${idx}" data-field="weight">
+                </div>
+            </div>
+        `).join('');
+
+        // Add event delegation
+        this.setupConfigListeners();
+    }
+
+    setupConfigListeners() {
+        const configPanel = document.querySelector('.config-panel');
+        
+        configPanel.addEventListener('change', (e) => {
+            const target = e.target;
+            const type = target.dataset.type;
+            const index = parseInt(target.dataset.index);
+            const field = target.dataset.field;
+            
+            if (type && !isNaN(index) && field) {
+                let value = target.type === 'checkbox' ? target.checked : parseFloat(target.value);
+                this.updateConfig(type, index, field, value);
+            }
+        });
+    }
+
+    updateConfig(type, index, field, value) {
+        const list = type === 'top' ? this.config.topCorners : this.config.bottomCorners;
+        
+        // Sanitize weight values (0-100%)
+        if (field === 'weight') {
+            value = parseFloat(value);
+            if (isNaN(value)) value = 0;
+            value = Math.max(0, Math.min(100, value)); // Clamp to 0-100
+        }
+        
+        list[index][field] = value;
+        this.updateConfigPreview();
+        this.regenerate();
+    }
+
+    pick(list) {
+        const total = list.reduce((sum, item) => sum + item.weight, 0);
+        
+        // If all weights are 0, return random item
+        if (total === 0) {
+            return list[Math.floor(Math.random() * list.length)];
+        }
+        
+        let r = Math.random() * total;
+        for (const item of list) {
+            r -= item.weight;
+            if (r <= 0) return item;
+        }
+        return list[0];
+    }
+
+    pickCorners() {
+        const used = new Set();
+        
+        const pickUnique = (configList) => {
+            const available = configList.filter(item => 
+                !item.unique || !used.has(item.name)
+            );
+            const picked = this.pick(available);
+            if (picked.unique) used.add(picked.name);
+            return picked.name;
+        };
+        
+        return {
+            topLeft: pickUnique(this.config.topCorners),
+            topRight: pickUnique(this.config.topCorners),
+            bottomLeft: pickUnique(this.config.bottomCorners),
+            bottomRight: pickUnique(this.config.bottomCorners)
+        };
+    }
+
+    regenerate() {
+        const container = document.getElementById('boxes');
+        container.innerHTML = '';
+        this.boxes = [];
+
+        for (let i = 0; i < 6; i++) {
+            const corners = this.pickCorners();
+            
+            // Box 1 gets a generated pattern, others get random colors
+            let content;
+            if (i === 1) {
+                content = {
+                    type: 'pattern',
+                    value: 'checkerboard'
+                };
+            } else {
+                content = {
+                    type: 'color',
+                    value: LEGO_COLORS[Math.floor(Math.random() * LEGO_COLORS.length)]
+                };
+            }
+
+            const boxContainer = document.createElement('div');
+            boxContainer.className = 'box-container';
+            container.appendChild(boxContainer);
+
+            const box = new Box(boxContainer, corners, content, i);
+            this.boxes.push(box);
+        }
+
+        // Initial render
+        requestAnimationFrame(() => {
+            this.boxes.forEach(box => box.updateAndRender());
+            // Setup resize observers AFTER initial render
+            this.setupResize();
+        });
+    }
+
+    setupResize() {
+        // Disconnect old observer if exists
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+        }
+
+        // Use ResizeObserver to watch each container
+        if (window.ResizeObserver) {
+            this.resizeObserver = new ResizeObserver(entries => {
+                for (const entry of entries) {
+                    const index = parseInt(entry.target.dataset.boxIndex);
+                    
+                    if (!isNaN(index) && this.boxes[index]) {
+                        this.boxes[index].updateAndRender();
+                    }
+                }
+            });
+
+            // Observe all containers
+            this.boxes.forEach((box, i) => {
+                box.container.dataset.boxIndex = i;
+                this.resizeObserver.observe(box.container);
+            });
+        } else {
+            // Fallback to window resize
+            let resizeTimeout;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    this.boxes.forEach(box => box.updateAndRender());
+                }, 100);
+            });
+        }
+    }
+}
+
+// Initialize app when DOM is ready
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // Load config.json
+        const response = await fetch('config.json');
+        if (!response.ok) {
+            throw new Error('Failed to load config.json');
+        }
+        const config = await response.json();
+        
+        // Initialize app with loaded config
+        const app = new App(config);
+        
+        // Setup regenerate button
+        document.getElementById('btnRegenerate').addEventListener('click', () => {
+            app.regenerate();
+        });
+        
+        // Setup save config button
+        document.getElementById('btnSaveConfig').addEventListener('click', () => {
+            app.downloadConfig();
+        });
+        
+        // Setup copy config button
+        document.getElementById('btnCopyConfig').addEventListener('click', () => {
+            app.copyConfig();
+        });
+        
+        // Make app globally accessible for debugging
+        window.app = app;
+        
+    } catch (error) {
+        console.error('Error initializing app:', error);
+        alert('Failed to load configuration. Please make sure config.json is in the same directory.');
+    }
+});

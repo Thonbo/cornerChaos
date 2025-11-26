@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LEGO Box Component</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Config Panel */
+        .config-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .config-panel h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+        }
+
+        .config-section h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .config-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            gap: 12px;
+        }
+
+        .corner-preview {
+            width: 40px;
+            height: 20px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .corner-preview svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .config-item-name {
+            flex: 1;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .config-item-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* Toggle Switch */
+        .toggle-label {
+            font-size: 12px;
+            color: #666;
+            margin-right: 8px;
+        }
+
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle input:checked + .toggle-slider {
+            background-color: #2196F3;
+        }
+
+        .toggle input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Weight Input */
+        .weight-label {
+            font-size: 12px;
+            color: #666;
+            margin-right: 8px;
+        }
+
+        .weight-input {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+            width: 70px;
+        }
+
+        .weight-input:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+
+        /* Regenerate Button */
+        .regenerate-section {
+            text-align: center;
+            margin: 30px 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn-generate, .btn-save, .btn-copy {
+            color: white;
+            border: none;
+            padding: 14px 40px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s;
+        }
+
+        .btn-generate {
+            background: #2196F3;
+        }
+
+        .btn-generate:hover {
+            background: #0b7dda;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+        }
+
+        .btn-save {
+            background: #4CAF50;
+        }
+
+        .btn-save:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-copy {
+            background: #FF9800;
+        }
+
+        .btn-copy:hover {
+            background: #e68900;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+        }
+
+        /* Config Preview */
+        .config-preview {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .config-preview h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .config-preview pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.5;
+            border: 1px solid #ddd;
+        }
+
+        /* Boxes Grid */
+        .boxes {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .box-container {
+            width: 100%;
+            height: 300px;
+            position: relative;
+        }
+
+        .box-container svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        @media (max-width: 900px) {
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .boxes {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="config-panel">
+            <h2>⚙️ Configuration</h2>
+            
+            <div class="config-grid">
+                <div class="config-section">
+                    <h3>Top Corners</h3>
+                    <div id="topConfig"></div>
+                </div>
+
+                <div class="config-section">
+                    <h3>Bottom Corners</h3>
+                    <div id="bottomConfig"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="regenerate-section">
+            <button class="btn-generate" id="btnRegenerate">🎲 Regenerate Boxes</button>
+            <button class="btn-save" id="btnSaveConfig">💾 Download Config</button>
+            <button class="btn-copy" id="btnCopyConfig">📋 Copy Config</button>
+        </div>
+
+        <div class="config-preview" id="configPreview">
+            <h3>Current Configuration (JSON)</h3>
+            <pre id="configJson"></pre>
+        </div>
+
+        <div class="boxes" id="boxes"></div>
+    </div>
+
+    <!-- Load scripts in correct order -->
+    <script src="corners.js"></script>
+    <script src="colors.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
