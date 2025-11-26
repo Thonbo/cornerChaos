@@ -70,7 +70,7 @@ class Box {
                         <foreignObject x="0" y="0" width="${width}" height="${height}">
                             <div xmlns="http://www.w3.org/1999/xhtml" style="width: ${width}px; height: ${height}px; overflow: hidden; background: #000;">
                                 <video id="video${id}" autoplay loop muted playsinline
-                                       style="width: 100%; height: 100%; object-fit: contain;">
+                                       style="width: 100%; height: 100%; object-fit: cover;">
                                     <source src="${content.value}" type="video/mp4">
                                 </video>
                             </div>
