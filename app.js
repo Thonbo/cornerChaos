@@ -116,15 +116,7 @@ class App {
         this.config = JSON.parse(JSON.stringify(config)); // Deep clone
 
         this.buildConfigUI();
-        this.updateConfigPreview();
         this.regenerate();
-    }
-
-    updateConfigPreview() {
-        const preview = document.getElementById('configJson');
-        if (preview) {
-            preview.textContent = JSON.stringify(this.config, null, 4);
-        }
     }
 
     downloadConfig() {
@@ -138,21 +130,6 @@ class App {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-    }
-
-    copyConfig() {
-        const dataStr = JSON.stringify(this.config, null, 4);
-        navigator.clipboard.writeText(dataStr).then(() => {
-            const btn = document.getElementById('btnCopyConfig');
-            const originalText = btn.textContent;
-            btn.textContent = '✅ Copied!';
-            setTimeout(() => {
-                btn.textContent = originalText;
-            }, 2000);
-        }).catch(err => {
-            console.error('Failed to copy:', err);
-            alert('Failed to copy to clipboard');
-        });
     }
 
     buildConfigUI() {
@@ -237,16 +214,15 @@ class App {
 
     updateConfig(type, index, field, value) {
         const list = type === 'top' ? this.config.topCorners : this.config.bottomCorners;
-        
+
         // Sanitize weight values (0-100%)
         if (field === 'weight') {
             value = parseFloat(value);
             if (isNaN(value)) value = 0;
             value = Math.max(0, Math.min(100, value)); // Clamp to 0-100
         }
-        
+
         list[index][field] = value;
-        this.updateConfigPreview();
         this.regenerate();
     }
 
@@ -377,17 +353,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('btnRegenerate').addEventListener('click', () => {
             app.regenerate();
         });
-        
+
         // Setup save config button
         document.getElementById('btnSaveConfig').addEventListener('click', () => {
             app.downloadConfig();
         });
-        
-        // Setup copy config button
-        document.getElementById('btnCopyConfig').addEventListener('click', () => {
-            app.copyConfig();
-        });
-        
+
         // Make app globally accessible for debugging
         window.app = app;
         

@@ -171,7 +171,7 @@
             flex-wrap: wrap;
         }
 
-        .btn-generate, .btn-save, .btn-copy {
+        .btn-generate, .btn-save {
             color: white;
             border: none;
             padding: 14px 40px;
@@ -201,41 +201,6 @@
             background: #45a049;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
-        }
-
-        .btn-copy {
-            background: #FF9800;
-        }
-
-        .btn-copy:hover {
-            background: #e68900;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
-        }
-
-        /* Config Preview */
-        .config-preview {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .config-preview h3 {
-            color: #333;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-
-        .config-preview pre {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 4px;
-            overflow-x: auto;
-            font-size: 13px;
-            line-height: 1.5;
-            border: 1px solid #ddd;
         }
 
         /* Boxes Grid */
@@ -291,12 +256,6 @@
         <div class="regenerate-section">
             <button class="btn-generate" id="btnRegenerate">🎲 Regenerate Boxes</button>
             <button class="btn-save" id="btnSaveConfig">💾 Download Config</button>
-            <button class="btn-copy" id="btnCopyConfig">📋 Copy Config</button>
-        </div>
-
-        <div class="config-preview" id="configPreview">
-            <h3>Current Configuration (JSON)</h3>
-            <pre id="configJson"></pre>
         </div>
 
         <div class="boxes" id="boxes"></div>
