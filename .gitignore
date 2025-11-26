@@ -1,0 +1,6 @@
+# Local Netlify folder
+.netlify
+
+# Deployment archives
+deploy.tar.gz
+deploy.zip
