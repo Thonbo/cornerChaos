@@ -18,7 +18,7 @@ class Box {
 
     render() {
         const { width, height, corners, content, id } = this;
-        
+
         const tlPath = CORNER_PATHS[corners.topLeft];
         const trPath = CORNER_PATHS[corners.topRight];
         const blPath = BOTTOM_CORNER_PATHS[corners.bottomLeft];
@@ -27,10 +27,70 @@ class Box {
         const edgeWidth = width - (CORNER_WIDTH * 2);
         const bodyHeight = height - (CORNER_HEIGHT * 2);
 
+        // For videos, use SVG with foreignObject to properly mask
+        if (content.type === 'video') {
+            this.container.innerHTML = `
+                <svg width="${width}" height="${height}" style="display: block;">
+                    <defs>
+                        <mask id="boxMask${id}">
+                            <!-- Top left corner -->
+                            <path d="${tlPath}" fill="white"/>
+
+                            <!-- Top edge -->
+                            <rect x="${CORNER_WIDTH}" y="0" width="${edgeWidth}" height="${CORNER_HEIGHT}" fill="white"/>
+
+                            <!-- Top right corner (mirrored) -->
+                            <g transform="translate(${width - CORNER_WIDTH}, 0)">
+                                <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
+                                    <path d="${trPath}" fill="white"/>
+                                </g>
+                            </g>
+
+                            <!-- Body -->
+                            <rect x="0" y="${CORNER_HEIGHT}" width="${width}" height="${bodyHeight}" fill="white"/>
+
+                            <!-- Bottom left corner -->
+                            <g transform="translate(0, ${height - CORNER_HEIGHT})">
+                                <path d="${blPath}" fill="white"/>
+                            </g>
+
+                            <!-- Bottom edge -->
+                            <rect x="${CORNER_WIDTH}" y="${height - CORNER_HEIGHT}" width="${edgeWidth}" height="${CORNER_HEIGHT}" fill="white"/>
+
+                            <!-- Bottom right corner (mirrored) -->
+                            <g transform="translate(${width - CORNER_WIDTH}, ${height - CORNER_HEIGHT})">
+                                <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
+                                    <path d="${brPath}" fill="white"/>
+                                </g>
+                            </g>
+                        </mask>
+                    </defs>
+
+                    <g mask="url(#boxMask${id})">
+                        <foreignObject x="0" y="0" width="${width}" height="${height}">
+                            <div xmlns="http://www.w3.org/1999/xhtml" style="width: ${width}px; height: ${height}px; overflow: hidden; background: #000;">
+                                <video id="video${id}" autoplay loop muted playsinline
+                                       style="width: 100%; height: 100%; object-fit: cover;">
+                                    <source src="${content.value}" type="video/mp4">
+                                </video>
+                            </div>
+                        </foreignObject>
+                    </g>
+                </svg>
+            `;
+
+            // Start video playback
+            const video = this.container.querySelector(`#video${id}`);
+            if (video) {
+                video.play().catch(e => console.log('Video autoplay prevented:', e));
+            }
+            return;
+        }
+
         // Generate pattern/image or direct color
         let fillDef = '';
         let fillValue = '';
-        
+
         if (content.type === 'image') {
             fillDef = `
                 <pattern id="imgPattern${id}" patternUnits="userSpaceOnUse" width="${width}" height="${height}">
@@ -115,26 +175,29 @@ class App {
         this.resizeObserver = null;
         this.config = JSON.parse(JSON.stringify(config)); // Deep clone
         this.images = [];
+        this.videos = [];
 
         this.buildConfigUI();
-        this.loadImages().then(() => {
+        this.loadMedia().then(() => {
             this.regenerate();
         });
     }
 
-    async loadImages() {
+    async loadMedia() {
         try {
-            // Load image list from images.json
+            // Load image and video list from images.json
             const response = await fetch('images.json');
             if (response.ok) {
                 const data = await response.json();
                 if (data.images && data.images.length > 0) {
-                    this.images = data.images;
-                    console.log(`Loaded ${this.images.length} images`);
+                    // Separate images and videos
+                    this.images = data.images.filter(file => !file.endsWith('.mp4'));
+                    this.videos = data.images.filter(file => file.endsWith('.mp4'));
+                    console.log(`Loaded ${this.images.length} images and ${this.videos.length} videos`);
                 }
             }
         } catch (error) {
-            console.log('No images found, using colors only');
+            console.log('No media found, using colors only');
         }
     }
 
@@ -149,6 +212,43 @@ class App {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
+    }
+
+    shareConfig() {
+        // Encode config as base64 for URL
+        const configStr = JSON.stringify(this.config);
+        const encoded = btoa(configStr);
+
+        // Create shareable URL
+        const baseUrl = window.location.origin + window.location.pathname;
+        const shareUrl = `${baseUrl}?config=${encodeURIComponent(encoded)}`;
+
+        // Copy to clipboard
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            alert('✅ Shareable URL copied to clipboard!\n\nAnyone with this link can view your current configuration.');
+        }).catch(err => {
+            // Fallback: show URL in prompt
+            prompt('Copy this shareable URL:', shareUrl);
+        });
+    }
+
+    static loadConfigFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const configParam = urlParams.get('config');
+
+        if (configParam) {
+            try {
+                const decoded = atob(decodeURIComponent(configParam));
+                const config = JSON.parse(decoded);
+                console.log('Loaded config from URL');
+                return config;
+            } catch (error) {
+                console.error('Failed to parse config from URL:', error);
+                return null;
+            }
+        }
+
+        return null;
     }
 
     buildConfigUI() {
@@ -286,34 +386,50 @@ class App {
         container.innerHTML = '';
         this.boxes = [];
 
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 10; i++) {
             const corners = this.pickCorners();
 
+            let content;
+
+            // Positions 1 and 5 get videos (if available) - replacing images
+            if ((i === 1 || i === 5) && this.videos.length > 0) {
+                const videoIndex = i === 1 ? 0 : 1; // First video at position 1, second at position 5
+                const video = this.videos[videoIndex % this.videos.length]; // Use modulo in case we have fewer videos
+                content = {
+                    type: 'video',
+                    value: video
+                };
+            }
             // Chess pattern: 2nd and 3rd of every 4 boxes get images
             // Pattern: color, image, image, color, color, image, image, color...
             // Position 0: color (1st of 4)
-            // Position 1: image (2nd of 4)
+            // Position 1: VIDEO (replaces image, 2nd of 4)
             // Position 2: image (3rd of 4)
             // Position 3: color (4th of 4)
             // Position 4: color (1st of 4)
-            // Position 5: image (2nd of 4)
-            const positionInGroup = i % 4;
-            const useImage = (positionInGroup === 1 || positionInGroup === 2);
+            // Position 5: VIDEO (replaces image, 2nd of 4)
+            // Position 6: image (3rd of 4)
+            // Position 7: color (4th of 4)
+            // Position 8: color (1st of 4)
+            // Position 9: image (2nd of 4)
+            else {
+                const positionInGroup = i % 4;
+                const useImage = (positionInGroup === 1 || positionInGroup === 2);
 
-            let content;
-            if (useImage && this.images.length > 0) {
-                // Use random image from loaded images
-                const randomImage = this.images[Math.floor(Math.random() * this.images.length)];
-                content = {
-                    type: 'image',
-                    value: randomImage
-                };
-            } else {
-                // Use random LEGO color
-                content = {
-                    type: 'color',
-                    value: LEGO_COLORS[Math.floor(Math.random() * LEGO_COLORS.length)]
-                };
+                if (useImage && this.images.length > 0) {
+                    // Use random image from loaded images
+                    const randomImage = this.images[Math.floor(Math.random() * this.images.length)];
+                    content = {
+                        type: 'image',
+                        value: randomImage
+                    };
+                } else {
+                    // Use random LEGO color
+                    content = {
+                        type: 'color',
+                        value: LEGO_COLORS[Math.floor(Math.random() * LEGO_COLORS.length)]
+                    };
+                }
             }
 
             const boxContainer = document.createElement('div');
@@ -371,16 +487,21 @@ class App {
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Load config.json
-        const response = await fetch('config.json');
-        if (!response.ok) {
-            throw new Error('Failed to load config.json');
+        // Check if config is in URL first
+        let config = App.loadConfigFromURL();
+
+        // If no URL config, load from config.json
+        if (!config) {
+            const response = await fetch('config.json');
+            if (!response.ok) {
+                throw new Error('Failed to load config.json');
+            }
+            config = await response.json();
         }
-        const config = await response.json();
-        
+
         // Initialize app with loaded config
         const app = new App(config);
-        
+
         // Setup regenerate button
         document.getElementById('btnRegenerate').addEventListener('click', () => {
             app.regenerate();
@@ -391,9 +512,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             app.downloadConfig();
         });
 
+        // Setup share config button
+        document.getElementById('btnShareConfig').addEventListener('click', () => {
+            app.shareConfig();
+        });
+
         // Make app globally accessible for debugging
         window.app = app;
-        
+
     } catch (error) {
         console.error('Error initializing app:', error);
         alert('Failed to load configuration. Please make sure config.json is in the same directory.');
