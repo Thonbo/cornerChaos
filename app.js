@@ -251,98 +251,6 @@ class App {
         return null;
     }
 
-    async saveToGitHub() {
-        // Get GitHub token from localStorage (or prompt user)
-        let token = localStorage.getItem('github_token');
-
-        if (!token) {
-            token = prompt('Please enter your GitHub Personal Access Token:\n\n(Create one at: https://github.com/settings/tokens/new with "repo" permission)\n\nThe token will be saved locally for future use.');
-
-            if (!token) {
-                alert('GitHub token is required to save to GitHub.');
-                return;
-            }
-
-            // Save token for future use
-            localStorage.setItem('github_token', token);
-        }
-
-        const btn = document.getElementById('btnSaveToGitHub');
-        const originalText = btn.textContent;
-        btn.textContent = '⏳ Saving...';
-        btn.disabled = true;
-
-        try {
-            const owner = 'Thonbo';
-            const repo = 'cornerChaos';
-            const branch = 'claude/access-chat-history-013LBCFoRNTFGsEZgrbYUiQA';
-            const path = 'config.json';
-
-            // Step 1: Get current file SHA
-            const getFileUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
-            const getResponse = await fetch(getFileUrl, {
-                headers: {
-                    'Authorization': `token ${token}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                }
-            });
-
-            if (!getResponse.ok) {
-                throw new Error(`Failed to get file: ${getResponse.statusText}`);
-            }
-
-            const fileData = await getResponse.json();
-            const sha = fileData.sha;
-
-            // Step 2: Update file with new config
-            const content = btoa(JSON.stringify(this.config, null, 4)); // Base64 encode
-
-            const updateUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-            const updateResponse = await fetch(updateUrl, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `token ${token}`,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: 'Update config.json via web interface',
-                    content: content,
-                    sha: sha,
-                    branch: branch
-                })
-            });
-
-            if (!updateResponse.ok) {
-                const error = await updateResponse.json();
-                throw new Error(`Failed to update file: ${error.message || updateResponse.statusText}`);
-            }
-
-            btn.textContent = '✅ Saved!';
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }, 2000);
-
-            alert('✅ Config saved to GitHub successfully!\n\nNetlify will auto-deploy if you have continuous deployment enabled.');
-
-        } catch (error) {
-            console.error('Error saving to GitHub:', error);
-            btn.textContent = '❌ Error';
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }, 2000);
-
-            alert(`Failed to save to GitHub:\n${error.message}\n\nPlease check:\n1. Your GitHub token is valid\n2. Token has "repo" permission\n3. You have write access to the repository`);
-
-            // Clear invalid token
-            if (error.message.includes('401') || error.message.includes('403')) {
-                localStorage.removeItem('github_token');
-            }
-        }
-    }
-
     buildConfigUI() {
         const topConfig = document.getElementById('topConfig');
         const bottomConfig = document.getElementById('bottomConfig');
@@ -600,11 +508,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Setup save config button
         document.getElementById('btnSaveConfig').addEventListener('click', () => {
             app.downloadConfig();
-        });
-
-        // Setup save to GitHub button
-        document.getElementById('btnSaveToGitHub').addEventListener('click', () => {
-            app.saveToGitHub();
         });
 
         // Setup share config button
