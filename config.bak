@@ -1,0 +1,19 @@
+{
+    "topCorners": [
+        { "name": "plus", "unique": true, "weight": 20 },
+        { "name": "studs", "unique": true, "weight": 40 },
+        { "name": "sloap", "unique": true, "weight": 3 },
+        { "name": "smallRound", "unique": true, "weight": 50 },
+        { "name": "smallDiagonal", "unique": true, "weight": 70 },
+        { "name": "bigDiagonal", "unique": true, "weight": 100 },
+        { "name": "bigRound", "unique": false, "weight": 100 },
+        { "name": "square", "unique": false, "weight": 90 }
+    ],
+    "bottomCorners": [
+        { "name": "square", "unique": false, "weight": 90 },
+        { "name": "bigSloap", "unique": true, "weight": 100 },
+        { "name": "bigDiagonal", "unique": true, "weight": 100 },
+        { "name": "smallSloap", "unique": false, "weight": 100 },
+        { "name": "smallDiagonal", "unique": true, "weight": 60 }
+    ]
+}
