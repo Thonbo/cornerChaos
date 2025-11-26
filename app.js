@@ -27,19 +27,10 @@ class Box {
         const edgeWidth = width - (CORNER_WIDTH * 2);
         const bodyHeight = height - (CORNER_HEIGHT * 2);
 
-        // For videos, render the same way as images but use video element in pattern
+        // For videos, use SVG with foreignObject to properly mask
         if (content.type === 'video') {
-            // Use inline style to position video behind SVG mask
-            this.container.style.position = 'relative';
-            this.container.style.overflow = 'hidden';
-
             this.container.innerHTML = `
-                <video id="video${id}" autoplay loop muted playsinline
-                       style="position: absolute; top: 50%; left: 50%; min-width: 100%; min-height: 100%;
-                              width: auto; height: auto; transform: translate(-50%, -50%); z-index: 0;">
-                    <source src="${content.value}" type="video/mp4">
-                </video>
-                <svg width="${width}" height="${height}" style="position: relative; display: block; z-index: 1;">
+                <svg width="${width}" height="${height}" style="display: block;">
                     <defs>
                         <mask id="boxMask${id}">
                             <!-- Top left corner -->
@@ -75,7 +66,17 @@ class Box {
                         </mask>
                     </defs>
 
-                    <rect x="0" y="0" width="${width}" height="${height}" fill="white" mask="url(#boxMask${id})" style="pointer-events: none;"/>
+                    <g mask="url(#boxMask${id})">
+                        <foreignObject x="0" y="0" width="${width}" height="${height}">
+                            <div xmlns="http://www.w3.org/1999/xhtml" style="width: ${width}px; height: ${height}px; overflow: hidden; position: relative;">
+                                <video id="video${id}" autoplay loop muted playsinline
+                                       style="position: absolute; top: 50%; left: 50%; min-width: 100%; min-height: 100%;
+                                              width: auto; height: auto; transform: translate(-50%, -50%);">
+                                    <source src="${content.value}" type="video/mp4">
+                                </video>
+                            </div>
+                        </foreignObject>
+                    </g>
                 </svg>
             `;
 
