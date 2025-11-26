@@ -391,9 +391,9 @@ class App {
 
             let content;
 
-            // Positions 4 and 8 get videos (if available)
-            if ((i === 4 || i === 8) && this.videos.length > 0) {
-                const videoIndex = i === 4 ? 0 : 1; // First video at position 4, second at position 8
+            // Positions 1 and 5 get videos (if available) - replacing images
+            if ((i === 1 || i === 5) && this.videos.length > 0) {
+                const videoIndex = i === 1 ? 0 : 1; // First video at position 1, second at position 5
                 const video = this.videos[videoIndex % this.videos.length]; // Use modulo in case we have fewer videos
                 content = {
                     type: 'video',
@@ -403,12 +403,14 @@ class App {
             // Chess pattern: 2nd and 3rd of every 4 boxes get images
             // Pattern: color, image, image, color, color, image, image, color...
             // Position 0: color (1st of 4)
-            // Position 1: image (2nd of 4)
+            // Position 1: VIDEO (replaces image, 2nd of 4)
             // Position 2: image (3rd of 4)
             // Position 3: color (4th of 4)
-            // Position 5: image (2nd of 4)
+            // Position 4: color (1st of 4)
+            // Position 5: VIDEO (replaces image, 2nd of 4)
             // Position 6: image (3rd of 4)
             // Position 7: color (4th of 4)
+            // Position 8: color (1st of 4)
             // Position 9: image (2nd of 4)
             else {
                 const positionInGroup = i % 4;
