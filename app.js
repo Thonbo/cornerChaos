@@ -18,7 +18,7 @@ class Box {
 
     render() {
         const { width, height, corners, content, id } = this;
-        
+
         const tlPath = CORNER_PATHS[corners.topLeft];
         const trPath = CORNER_PATHS[corners.topRight];
         const blPath = BOTTOM_CORNER_PATHS[corners.bottomLeft];
@@ -27,11 +27,25 @@ class Box {
         const edgeWidth = width - (CORNER_WIDTH * 2);
         const bodyHeight = height - (CORNER_HEIGHT * 2);
 
-        // Generate pattern/image or direct color
+        // Generate pattern/image/video or direct color
         let fillDef = '';
         let fillValue = '';
-        
-        if (content.type === 'image') {
+
+        if (content.type === 'video') {
+            // For videos, we'll use a different approach - overlay the video
+            fillDef = `
+                <pattern id="videoPattern${id}" patternUnits="userSpaceOnUse" width="${width}" height="${height}">
+                    <foreignObject x="0" y="0" width="${width}" height="${height}">
+                        <video xmlns="http://www.w3.org/1999/xhtml"
+                               autoplay loop muted playsinline
+                               style="width: 100%; height: 100%; object-fit: cover;">
+                            <source src="${content.value}" type="video/mp4">
+                        </video>
+                    </foreignObject>
+                </pattern>
+            `;
+            fillValue = `url(#videoPattern${id})`;
+        } else if (content.type === 'image') {
             fillDef = `
                 <pattern id="imgPattern${id}" patternUnits="userSpaceOnUse" width="${width}" height="${height}">
                     <image href="${content.value}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice"/>
@@ -115,26 +129,29 @@ class App {
         this.resizeObserver = null;
         this.config = JSON.parse(JSON.stringify(config)); // Deep clone
         this.images = [];
+        this.videos = [];
 
         this.buildConfigUI();
-        this.loadImages().then(() => {
+        this.loadMedia().then(() => {
             this.regenerate();
         });
     }
 
-    async loadImages() {
+    async loadMedia() {
         try {
-            // Load image list from images.json
+            // Load image and video list from images.json
             const response = await fetch('images.json');
             if (response.ok) {
                 const data = await response.json();
                 if (data.images && data.images.length > 0) {
-                    this.images = data.images;
-                    console.log(`Loaded ${this.images.length} images`);
+                    // Separate images and videos
+                    this.images = data.images.filter(file => !file.endsWith('.mp4'));
+                    this.videos = data.images.filter(file => file.endsWith('.mp4'));
+                    console.log(`Loaded ${this.images.length} images and ${this.videos.length} videos`);
                 }
             }
         } catch (error) {
-            console.log('No images found, using colors only');
+            console.log('No media found, using colors only');
         }
     }
 
@@ -286,34 +303,48 @@ class App {
         container.innerHTML = '';
         this.boxes = [];
 
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 10; i++) {
             const corners = this.pickCorners();
 
+            let content;
+
+            // Positions 4 and 8 get videos (if available)
+            if ((i === 4 || i === 8) && this.videos.length > 0) {
+                const videoIndex = i === 4 ? 0 : 1; // First video at position 4, second at position 8
+                const video = this.videos[videoIndex % this.videos.length]; // Use modulo in case we have fewer videos
+                content = {
+                    type: 'video',
+                    value: video
+                };
+            }
             // Chess pattern: 2nd and 3rd of every 4 boxes get images
             // Pattern: color, image, image, color, color, image, image, color...
             // Position 0: color (1st of 4)
             // Position 1: image (2nd of 4)
             // Position 2: image (3rd of 4)
             // Position 3: color (4th of 4)
-            // Position 4: color (1st of 4)
             // Position 5: image (2nd of 4)
-            const positionInGroup = i % 4;
-            const useImage = (positionInGroup === 1 || positionInGroup === 2);
+            // Position 6: image (3rd of 4)
+            // Position 7: color (4th of 4)
+            // Position 9: image (2nd of 4)
+            else {
+                const positionInGroup = i % 4;
+                const useImage = (positionInGroup === 1 || positionInGroup === 2);
 
-            let content;
-            if (useImage && this.images.length > 0) {
-                // Use random image from loaded images
-                const randomImage = this.images[Math.floor(Math.random() * this.images.length)];
-                content = {
-                    type: 'image',
-                    value: randomImage
-                };
-            } else {
-                // Use random LEGO color
-                content = {
-                    type: 'color',
-                    value: LEGO_COLORS[Math.floor(Math.random() * LEGO_COLORS.length)]
-                };
+                if (useImage && this.images.length > 0) {
+                    // Use random image from loaded images
+                    const randomImage = this.images[Math.floor(Math.random() * this.images.length)];
+                    content = {
+                        type: 'image',
+                        value: randomImage
+                    };
+                } else {
+                    // Use random LEGO color
+                    content = {
+                        type: 'color',
+                        value: LEGO_COLORS[Math.floor(Math.random() * LEGO_COLORS.length)]
+                    };
+                }
             }
 
             const boxContainer = document.createElement('div');
