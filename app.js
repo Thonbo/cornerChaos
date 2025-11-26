@@ -27,25 +27,53 @@ class Box {
         const edgeWidth = width - (CORNER_WIDTH * 2);
         const bodyHeight = height - (CORNER_HEIGHT * 2);
 
-        // Generate pattern/image/video or direct color
+        // For videos, use HTML video element instead of SVG
+        if (content.type === 'video') {
+            this.container.innerHTML = `
+                <div style="position: relative; width: ${width}px; height: ${height}px; overflow: hidden;">
+                    <video autoplay loop muted playsinline
+                           style="position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 0;">
+                        <source src="${content.value}" type="video/mp4">
+                    </video>
+                    <svg width="${width}" height="${height}" style="position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none;">
+                        <defs>
+                            <mask id="boxMask${id}">
+                                <path d="${tlPath}" fill="white"/>
+                                <rect x="${CORNER_WIDTH}" y="0" width="${edgeWidth}" height="${CORNER_HEIGHT}" fill="white"/>
+                                <g transform="translate(${width - CORNER_WIDTH}, 0)">
+                                    <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
+                                        <path d="${trPath}" fill="white"/>
+                                    </g>
+                                </g>
+                                <rect x="0" y="${CORNER_HEIGHT}" width="${width}" height="${bodyHeight}" fill="white"/>
+                                <g transform="translate(0, ${height - CORNER_HEIGHT})">
+                                    <path d="${blPath}" fill="white"/>
+                                </g>
+                                <rect x="${CORNER_WIDTH}" y="${height - CORNER_HEIGHT}" width="${edgeWidth}" height="${CORNER_HEIGHT}" fill="white"/>
+                                <g transform="translate(${width - CORNER_WIDTH}, ${height - CORNER_HEIGHT})">
+                                    <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
+                                        <path d="${brPath}" fill="white"/>
+                                    </g>
+                                </g>
+                            </mask>
+                        </defs>
+                        <rect x="0" y="0" width="${width}" height="${height}" fill="black" mask="url(#boxMask${id})" opacity="0.7"/>
+                    </svg>
+                </div>
+            `;
+            // Force video to play
+            const video = this.container.querySelector('video');
+            if (video) {
+                video.play().catch(e => console.log('Video autoplay prevented:', e));
+            }
+            return;
+        }
+
+        // Generate pattern/image or direct color
         let fillDef = '';
         let fillValue = '';
 
-        if (content.type === 'video') {
-            // For videos, we'll use a different approach - overlay the video
-            fillDef = `
-                <pattern id="videoPattern${id}" patternUnits="userSpaceOnUse" width="${width}" height="${height}">
-                    <foreignObject x="0" y="0" width="${width}" height="${height}">
-                        <video xmlns="http://www.w3.org/1999/xhtml"
-                               autoplay loop muted playsinline
-                               style="width: 100%; height: 100%; object-fit: cover;">
-                            <source src="${content.value}" type="video/mp4">
-                        </video>
-                    </foreignObject>
-                </pattern>
-            `;
-            fillValue = `url(#videoPattern${id})`;
-        } else if (content.type === 'image') {
+        if (content.type === 'image') {
             fillDef = `
                 <pattern id="imgPattern${id}" patternUnits="userSpaceOnUse" width="${width}" height="${height}">
                     <image href="${content.value}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice"/>
@@ -166,6 +194,98 @@ class App {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
+    }
+
+    async saveToGitHub() {
+        // Get GitHub token from localStorage (or prompt user)
+        let token = localStorage.getItem('github_token');
+
+        if (!token) {
+            token = prompt('Please enter your GitHub Personal Access Token:\n\n(Create one at: https://github.com/settings/tokens/new with "repo" permission)\n\nThe token will be saved locally for future use.');
+
+            if (!token) {
+                alert('GitHub token is required to save to GitHub.');
+                return;
+            }
+
+            // Save token for future use
+            localStorage.setItem('github_token', token);
+        }
+
+        const btn = document.getElementById('btnSaveToGitHub');
+        const originalText = btn.textContent;
+        btn.textContent = '⏳ Saving...';
+        btn.disabled = true;
+
+        try {
+            const owner = 'Thonbo';
+            const repo = 'cornerChaos';
+            const branch = 'claude/access-chat-history-013LBCFoRNTFGsEZgrbYUiQA';
+            const path = 'config.json';
+
+            // Step 1: Get current file SHA
+            const getFileUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+            const getResponse = await fetch(getFileUrl, {
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (!getResponse.ok) {
+                throw new Error(`Failed to get file: ${getResponse.statusText}`);
+            }
+
+            const fileData = await getResponse.json();
+            const sha = fileData.sha;
+
+            // Step 2: Update file with new config
+            const content = btoa(JSON.stringify(this.config, null, 4)); // Base64 encode
+
+            const updateUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+            const updateResponse = await fetch(updateUrl, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: 'Update config.json via web interface',
+                    content: content,
+                    sha: sha,
+                    branch: branch
+                })
+            });
+
+            if (!updateResponse.ok) {
+                const error = await updateResponse.json();
+                throw new Error(`Failed to update file: ${error.message || updateResponse.statusText}`);
+            }
+
+            btn.textContent = '✅ Saved!';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }, 2000);
+
+            alert('✅ Config saved to GitHub successfully!\n\nNetlify will auto-deploy if you have continuous deployment enabled.');
+
+        } catch (error) {
+            console.error('Error saving to GitHub:', error);
+            btn.textContent = '❌ Error';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }, 2000);
+
+            alert(`Failed to save to GitHub:\n${error.message}\n\nPlease check:\n1. Your GitHub token is valid\n2. Token has "repo" permission\n3. You have write access to the repository`);
+
+            // Clear invalid token
+            if (error.message.includes('401') || error.message.includes('403')) {
+                localStorage.removeItem('github_token');
+            }
+        }
     }
 
     buildConfigUI() {
@@ -420,6 +540,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Setup save config button
         document.getElementById('btnSaveConfig').addEventListener('click', () => {
             app.downloadConfig();
+        });
+
+        // Setup save to GitHub button
+        document.getElementById('btnSaveToGitHub').addEventListener('click', () => {
+            app.saveToGitHub();
         });
 
         // Make app globally accessible for debugging
