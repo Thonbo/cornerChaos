@@ -68,10 +68,9 @@ class Box {
 
                     <g mask="url(#boxMask${id})">
                         <foreignObject x="0" y="0" width="${width}" height="${height}">
-                            <div xmlns="http://www.w3.org/1999/xhtml" style="width: ${width}px; height: ${height}px; overflow: hidden; position: relative;">
+                            <div xmlns="http://www.w3.org/1999/xhtml" style="width: ${width}px; height: ${height}px; overflow: hidden; background: #000;">
                                 <video id="video${id}" autoplay loop muted playsinline
-                                       style="position: absolute; top: 50%; left: 50%; min-width: 100%; min-height: 100%;
-                                              width: auto; height: auto; transform: translate(-50%, -50%);">
+                                       style="width: 100%; height: 100%; object-fit: contain;">
                                     <source src="${content.value}" type="video/mp4">
                                 </video>
                             </div>
@@ -213,6 +212,43 @@ class App {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
+    }
+
+    shareConfig() {
+        // Encode config as base64 for URL
+        const configStr = JSON.stringify(this.config);
+        const encoded = btoa(configStr);
+
+        // Create shareable URL
+        const baseUrl = window.location.origin + window.location.pathname;
+        const shareUrl = `${baseUrl}?config=${encodeURIComponent(encoded)}`;
+
+        // Copy to clipboard
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            alert('✅ Shareable URL copied to clipboard!\n\nAnyone with this link can view your current configuration.');
+        }).catch(err => {
+            // Fallback: show URL in prompt
+            prompt('Copy this shareable URL:', shareUrl);
+        });
+    }
+
+    static loadConfigFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const configParam = urlParams.get('config');
+
+        if (configParam) {
+            try {
+                const decoded = atob(decodeURIComponent(configParam));
+                const config = JSON.parse(decoded);
+                console.log('Loaded config from URL');
+                return config;
+            } catch (error) {
+                console.error('Failed to parse config from URL:', error);
+                return null;
+            }
+        }
+
+        return null;
     }
 
     async saveToGitHub() {
@@ -541,16 +577,21 @@ class App {
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Load config.json
-        const response = await fetch('config.json');
-        if (!response.ok) {
-            throw new Error('Failed to load config.json');
+        // Check if config is in URL first
+        let config = App.loadConfigFromURL();
+
+        // If no URL config, load from config.json
+        if (!config) {
+            const response = await fetch('config.json');
+            if (!response.ok) {
+                throw new Error('Failed to load config.json');
+            }
+            config = await response.json();
         }
-        const config = await response.json();
-        
+
         // Initialize app with loaded config
         const app = new App(config);
-        
+
         // Setup regenerate button
         document.getElementById('btnRegenerate').addEventListener('click', () => {
             app.regenerate();
@@ -566,9 +607,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             app.saveToGitHub();
         });
 
+        // Setup share config button
+        document.getElementById('btnShareConfig').addEventListener('click', () => {
+            app.shareConfig();
+        });
+
         // Make app globally accessible for debugging
         window.app = app;
-        
+
     } catch (error) {
         console.error('Error initializing app:', error);
         alert('Failed to load configuration. Please make sure config.json is in the same directory.');

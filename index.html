@@ -171,7 +171,7 @@
             flex-wrap: wrap;
         }
 
-        .btn-generate, .btn-save, .btn-github {
+        .btn-generate, .btn-save, .btn-github, .btn-share {
             color: white;
             border: none;
             padding: 14px 40px;
@@ -211,6 +211,16 @@
             background: #1a1e22;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(36, 41, 46, 0.4);
+        }
+
+        .btn-share {
+            background: #FF9800;
+        }
+
+        .btn-share:hover {
+            background: #F57C00;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
         }
 
         /* Boxes Grid */
@@ -266,6 +276,7 @@
         <div class="regenerate-section">
             <button class="btn-generate" id="btnRegenerate">🎲 Regenerate Boxes</button>
             <button class="btn-github" id="btnSaveToGitHub">💾 Save to GitHub</button>
+            <button class="btn-share" id="btnShareConfig">🔗 Share Config</button>
             <button class="btn-save" id="btnSaveConfig">⬇️ Download Config</button>
         </div>
 
