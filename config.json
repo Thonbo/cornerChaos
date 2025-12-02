@@ -11,7 +11,7 @@
             "weight": 40
         },
         {
-            "name": "sloap",
+            "name": "slope",
             "unique": true,
             "weight": 3
         },
@@ -48,7 +48,7 @@
             "weight": 90
         },
         {
-            "name": "bigSloap",
+            "name": "bigSlope",
             "unique": true,
             "weight": 5
         },
@@ -58,7 +58,7 @@
             "weight": 5
         },
         {
-            "name": "smallSloap",
+            "name": "smallSlope",
             "unique": false,
             "weight": 100
         },

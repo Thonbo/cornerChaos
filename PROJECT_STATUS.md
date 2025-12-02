@@ -5,8 +5,8 @@
 ### Core Functionality
 - **Random Box Generation**: Generates 4 boxes with randomized corners based on weighted probability
 - **Corner System**:
-  - Top corners: plus, studs, sloap, smallRound, smallDiagonal, bigDiagonal, bigRound, square
-  - Bottom corners: square, bigSloap, bigDiagonal, smallSloap, smallDiagonal
+  - Top corners: plus, studs, slope, smallRound, smallDiagonal, bigDiagonal, bigRound, square
+  - Bottom corners: square, bigSlope, bigDiagonal, smallSlope, smallDiagonal
 - **Weighted Probability**: Each corner type has customizable weight (higher = more likely)
 - **Unique Constraints**: Some corners are unique (won't repeat in same generation)
 
