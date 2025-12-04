@@ -386,7 +386,36 @@ class App {
         container.innerHTML = '';
         this.boxes = [];
 
+        // Lorem ipsum texts for content sections
+        const loremHeaders = [
+            'Discover Creative Possibilities',
+            'Transform Your Vision',
+            'Innovative Design Solutions',
+            'Elevate Your Experience'
+        ];
+
+        const loremBodies = [
+            'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.',
+            'Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+            'Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.',
+            'Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet.'
+        ];
+
         for (let i = 0; i < 10; i++) {
+            // Add content section between rows (after every 2 boxes, except at the start)
+            if (i > 0 && i % 2 === 0) {
+                const contentSection = document.createElement('div');
+                contentSection.className = 'content-section section-spacing responsive-container';
+                contentSection.style.gridColumn = '1 / -1'; // Span both columns
+
+                const headerIndex = (i / 2 - 1) % loremHeaders.length;
+                contentSection.innerHTML = `
+                    <h2 class="responsive-header">${loremHeaders[headerIndex]}</h2>
+                    <p class="responsive-body">${loremBodies[headerIndex]}</p>
+                `;
+                container.appendChild(contentSection);
+            }
+
             const corners = this.pickCorners();
 
             let content;
