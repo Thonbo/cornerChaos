@@ -3,7 +3,7 @@
         {
             "name": "plus",
             "unique": true,
-            "weight": 20
+            "weight": 3
         },
         {
             "name": "studs",
@@ -28,7 +28,7 @@
         {
             "name": "bigDiagonal",
             "unique": true,
-            "weight": 5
+            "weight": 0
         },
         {
             "name": "bigRound",
@@ -50,12 +50,12 @@
         {
             "name": "bigSlope",
             "unique": true,
-            "weight": 5
+            "weight": 0
         },
         {
             "name": "bigDiagonal",
             "unique": true,
-            "weight": 5
+            "weight": 0
         },
         {
             "name": "smallSlope",
