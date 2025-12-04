@@ -18,7 +18,7 @@ class Box {
 
     render() {
         const { width, height, corners, content, id } = this;
-        
+
         const tlPath = CORNER_PATHS[corners.topLeft];
         const trPath = CORNER_PATHS[corners.topRight];
         const blPath = BOTTOM_CORNER_PATHS[corners.bottomLeft];
@@ -27,10 +27,70 @@ class Box {
         const edgeWidth = width - (CORNER_WIDTH * 2);
         const bodyHeight = height - (CORNER_HEIGHT * 2);
 
+        // For videos, use SVG with foreignObject to properly mask
+        if (content.type === 'video') {
+            this.container.innerHTML = `
+                <svg width="${width}" height="${height}" style="display: block;">
+                    <defs>
+                        <mask id="boxMask${id}">
+                            <!-- Top left corner -->
+                            <path d="${tlPath}" fill="white"/>
+
+                            <!-- Top edge -->
+                            <rect x="${CORNER_WIDTH}" y="0" width="${edgeWidth}" height="${CORNER_HEIGHT}" fill="white"/>
+
+                            <!-- Top right corner (mirrored) -->
+                            <g transform="translate(${width - CORNER_WIDTH}, 0)">
+                                <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
+                                    <path d="${trPath}" fill="white"/>
+                                </g>
+                            </g>
+
+                            <!-- Body -->
+                            <rect x="0" y="${CORNER_HEIGHT}" width="${width}" height="${bodyHeight}" fill="white"/>
+
+                            <!-- Bottom left corner -->
+                            <g transform="translate(0, ${height - CORNER_HEIGHT})">
+                                <path d="${blPath}" fill="white"/>
+                            </g>
+
+                            <!-- Bottom edge -->
+                            <rect x="${CORNER_WIDTH}" y="${height - CORNER_HEIGHT}" width="${edgeWidth}" height="${CORNER_HEIGHT}" fill="white"/>
+
+                            <!-- Bottom right corner (mirrored) -->
+                            <g transform="translate(${width - CORNER_WIDTH}, ${height - CORNER_HEIGHT})">
+                                <g transform="scale(-1, 1) translate(-${CORNER_WIDTH}, 0)">
+                                    <path d="${brPath}" fill="white"/>
+                                </g>
+                            </g>
+                        </mask>
+                    </defs>
+
+                    <g mask="url(#boxMask${id})">
+                        <foreignObject x="0" y="0" width="${width}" height="${height}">
+                            <div xmlns="http://www.w3.org/1999/xhtml" style="width: ${width}px; height: ${height}px; overflow: hidden; background: #000;">
+                                <video id="video${id}" autoplay loop muted playsinline
+                                       style="width: 100%; height: 100%; object-fit: cover;">
+                                    <source src="${content.value}" type="video/mp4">
+                                </video>
+                            </div>
+                        </foreignObject>
+                    </g>
+                </svg>
+            `;
+
+            // Start video playback
+            const video = this.container.querySelector(`#video${id}`);
+            if (video) {
+                video.play().catch(e => console.log('Video autoplay prevented:', e));
+            }
+            return;
+        }
+
         // Generate pattern/image or direct color
         let fillDef = '';
         let fillValue = '';
-        
+
         if (content.type === 'image') {
             fillDef = `
                 <pattern id="imgPattern${id}" patternUnits="userSpaceOnUse" width="${width}" height="${height}">
@@ -114,16 +174,30 @@ class App {
         this.boxes = [];
         this.resizeObserver = null;
         this.config = JSON.parse(JSON.stringify(config)); // Deep clone
+        this.images = [];
+        this.videos = [];
 
         this.buildConfigUI();
-        this.updateConfigPreview();
-        this.regenerate();
+        this.loadMedia().then(() => {
+            this.regenerate();
+        });
     }
 
-    updateConfigPreview() {
-        const preview = document.getElementById('configJson');
-        if (preview) {
-            preview.textContent = JSON.stringify(this.config, null, 4);
+    async loadMedia() {
+        try {
+            // Load image and video list from images.json
+            const response = await fetch('images.json');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.images && data.images.length > 0) {
+                    // Separate images and videos
+                    this.images = data.images.filter(file => !file.endsWith('.mp4'));
+                    this.videos = data.images.filter(file => file.endsWith('.mp4'));
+                    console.log(`Loaded ${this.images.length} images and ${this.videos.length} videos`);
+                }
+            }
+        } catch (error) {
+            console.log('No media found, using colors only');
         }
     }
 
@@ -140,19 +214,41 @@ class App {
         URL.revokeObjectURL(url);
     }
 
-    copyConfig() {
-        const dataStr = JSON.stringify(this.config, null, 4);
-        navigator.clipboard.writeText(dataStr).then(() => {
-            const btn = document.getElementById('btnCopyConfig');
-            const originalText = btn.textContent;
-            btn.textContent = '✅ Copied!';
-            setTimeout(() => {
-                btn.textContent = originalText;
-            }, 2000);
+    shareConfig() {
+        // Encode config as base64 for URL
+        const configStr = JSON.stringify(this.config);
+        const encoded = btoa(configStr);
+
+        // Create shareable URL
+        const baseUrl = window.location.origin + window.location.pathname;
+        const shareUrl = `${baseUrl}?config=${encodeURIComponent(encoded)}`;
+
+        // Copy to clipboard
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            alert('✅ Shareable URL copied to clipboard!\n\nAnyone with this link can view your current configuration.');
         }).catch(err => {
-            console.error('Failed to copy:', err);
-            alert('Failed to copy to clipboard');
+            // Fallback: show URL in prompt
+            prompt('Copy this shareable URL:', shareUrl);
         });
+    }
+
+    static loadConfigFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const configParam = urlParams.get('config');
+
+        if (configParam) {
+            try {
+                const decoded = atob(decodeURIComponent(configParam));
+                const config = JSON.parse(decoded);
+                console.log('Loaded config from URL');
+                return config;
+            } catch (error) {
+                console.error('Failed to parse config from URL:', error);
+                return null;
+            }
+        }
+
+        return null;
     }
 
     buildConfigUI() {
@@ -237,16 +333,15 @@ class App {
 
     updateConfig(type, index, field, value) {
         const list = type === 'top' ? this.config.topCorners : this.config.bottomCorners;
-        
+
         // Sanitize weight values (0-100%)
         if (field === 'weight') {
             value = parseFloat(value);
             if (isNaN(value)) value = 0;
             value = Math.max(0, Math.min(100, value)); // Clamp to 0-100
         }
-        
+
         list[index][field] = value;
-        this.updateConfigPreview();
         this.regenerate();
     }
 
@@ -291,21 +386,79 @@ class App {
         container.innerHTML = '';
         this.boxes = [];
 
-        for (let i = 0; i < 6; i++) {
+        // Lorem ipsum texts for content sections
+        const loremHeaders = [
+            'Discover Creative Possibilities',
+            'Transform Your Vision',
+            'Innovative Design Solutions',
+            'Elevate Your Experience'
+        ];
+
+        const loremBodies = [
+            'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.',
+            'Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+            'Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.',
+            'Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet.'
+        ];
+
+        for (let i = 0; i < 10; i++) {
+            // Add content section between rows (after every 2 boxes, except at the start)
+            if (i > 0 && i % 2 === 0) {
+                const contentSection = document.createElement('div');
+                contentSection.className = 'content-section section-spacing responsive-container';
+                contentSection.style.gridColumn = '1 / -1'; // Span both columns
+
+                const headerIndex = (i / 2 - 1) % loremHeaders.length;
+                contentSection.innerHTML = `
+                    <h2 class="responsive-header">${loremHeaders[headerIndex]}</h2>
+                    <p class="responsive-body">${loremBodies[headerIndex]}</p>
+                `;
+                container.appendChild(contentSection);
+            }
+
             const corners = this.pickCorners();
-            
-            // Box 1 gets a generated pattern, others get random colors
+
             let content;
-            if (i === 1) {
+
+            // Positions 1 and 5 get videos (if available) - replacing images
+            if ((i === 1 || i === 5) && this.videos.length > 0) {
+                const videoIndex = i === 1 ? 0 : 1; // First video at position 1, second at position 5
+                const video = this.videos[videoIndex % this.videos.length]; // Use modulo in case we have fewer videos
                 content = {
-                    type: 'pattern',
-                    value: 'checkerboard'
+                    type: 'video',
+                    value: video
                 };
-            } else {
-                content = {
-                    type: 'color',
-                    value: LEGO_COLORS[Math.floor(Math.random() * LEGO_COLORS.length)]
-                };
+            }
+            // Chess pattern: 2nd and 3rd of every 4 boxes get images
+            // Pattern: color, image, image, color, color, image, image, color...
+            // Position 0: color (1st of 4)
+            // Position 1: VIDEO (replaces image, 2nd of 4)
+            // Position 2: image (3rd of 4)
+            // Position 3: color (4th of 4)
+            // Position 4: color (1st of 4)
+            // Position 5: VIDEO (replaces image, 2nd of 4)
+            // Position 6: image (3rd of 4)
+            // Position 7: color (4th of 4)
+            // Position 8: color (1st of 4)
+            // Position 9: image (2nd of 4)
+            else {
+                const positionInGroup = i % 4;
+                const useImage = (positionInGroup === 1 || positionInGroup === 2);
+
+                if (useImage && this.images.length > 0) {
+                    // Use random image from loaded images
+                    const randomImage = this.images[Math.floor(Math.random() * this.images.length)];
+                    content = {
+                        type: 'image',
+                        value: randomImage
+                    };
+                } else {
+                    // Use random LEGO color
+                    content = {
+                        type: 'color',
+                        value: LEGO_COLORS[Math.floor(Math.random() * LEGO_COLORS.length)]
+                    };
+                }
             }
 
             const boxContainer = document.createElement('div');
@@ -363,34 +516,39 @@ class App {
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Load config.json
-        const response = await fetch('config.json');
-        if (!response.ok) {
-            throw new Error('Failed to load config.json');
+        // Check if config is in URL first
+        let config = App.loadConfigFromURL();
+
+        // If no URL config, load from config.json
+        if (!config) {
+            const response = await fetch('config.json');
+            if (!response.ok) {
+                throw new Error('Failed to load config.json');
+            }
+            config = await response.json();
         }
-        const config = await response.json();
-        
+
         // Initialize app with loaded config
         const app = new App(config);
-        
+
         // Setup regenerate button
         document.getElementById('btnRegenerate').addEventListener('click', () => {
             app.regenerate();
         });
-        
+
         // Setup save config button
         document.getElementById('btnSaveConfig').addEventListener('click', () => {
             app.downloadConfig();
         });
-        
-        // Setup copy config button
-        document.getElementById('btnCopyConfig').addEventListener('click', () => {
-            app.copyConfig();
+
+        // Setup share config button
+        document.getElementById('btnShareConfig').addEventListener('click', () => {
+            app.shareConfig();
         });
-        
+
         // Make app globally accessible for debugging
         window.app = app;
-        
+
     } catch (error) {
         console.error('Error initializing app:', error);
         alert('Failed to load configuration. Please make sure config.json is in the same directory.');
